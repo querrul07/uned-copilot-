@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>UNED Study Copilot | Asistente de Estudio Inteligente</title>
+  
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#006837">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UNED Copilot">
+  <link rel="apple-touch-icon" href="/static/icon-192.svg">
+  <link rel="icon" type="image/svg+xml" href="/static/icon-192.svg">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            uned: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#006837', // Official UNED green
+              600: '#00552b',
+              700: '#004222',
+            },
+            slate: {
+              850: '#151f32',
+              900: '#0f172a',
+              950: '#090d16',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    
+    .chat-bubble-ai pre {
+      background: #090d16;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 10px 0;
+      border: 1px solid #1e293b;
+    }
+    .chat-bubble-ai code {
+      font-family: monospace;
+      font-size: 0.9em;
+      background: #1e293b;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    .chat-bubble-ai pre code {
+      background: transparent;
+      padding: 0;
+    }
+    .chat-bubble-ai h1, .chat-bubble-ai h2, .chat-bubble-ai h3 {
+      font-weight: 700;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      color: #f8fafc;
+    }
+    .chat-bubble-ai ul, .chat-bubble-ai ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .chat-bubble-ai ul { list-style-type: disc; }
+    .chat-bubble-ai ol { list-style-type: decimal; }
+    .chat-bubble-ai li { margin-bottom: 4px; }
+    .chat-bubble-ai p { margin-bottom: 8px; line-height: 1.6; }
+    .chat-bubble-ai strong { color: #f1f5f9; }
+
+    /* Touch optimizations */
+    button, input, select, textarea {
+      touch-action: manipulation;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex h-screen overflow-hidden font-sans select-none md:select-text">
+
+  <!-- BACKDROP FOR MOBILE/TABLET SIDEBAR -->
+  <div id="sidebarBackdrop" onclick="closeSidebar()" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 hidden transition-opacity duration-300"></div>
+
+  <!-- LEFT SIDEBAR (Collapsible on Tablets / Mobile) -->
+  <aside id="mainSidebar" class="fixed md:static inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none">
+    <!-- Header / Brand -->
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-uned-500/20 border border-uned-500/40 flex items-center justify-center text-uned-500 font-bold text-lg shadow-sm">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-slate-100 text-sm leading-tight">UNED Copilot</h1>
+          <span class="text-xs text-uned-500 font-semibold tracking-wide">Ágora / Moodle AI</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="openTutorialModal()" title="Ver tutorial" class="p-2 text-slate-400 hover:text-uned-500 hover:bg-slate-800 rounded-lg transition">
+          <i class="fa-regular fa-circle-question text-base"></i>
+        </button>
+        <button onclick="closeSidebar()" class="p-2 text-slate-400 hover:text-white rounded-lg md:hidden">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- PWA Install Banner (Visible on Android tablet if installable) -->
+    <div id="pwaInstallBanner" class="p-3 bg-uned-500/10 border-b border-uned-500/30 flex items-center justify-between hidden">
+      <div class="flex items-center gap-2 text-xs text-slate-200">
+        <i class="fa-solid fa-tablet-screen-button text-uned-500 text-base"></i>
+        <span>Instalar app en tablet</span>
+      </div>
+      <button onclick="installPWA()" class="px-2.5 py-1 bg-uned-600 hover:bg-uned-500 text-white rounded-lg text-xs font-semibold shadow">
+        Instalar
+      </button>
+    </div>
+
+    <!-- Subject Selector -->
+    <div class="p-4 border-b border-slate-800">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Asignatura</label>
+        <button onclick="openNewSubjectModal()" class="text-xs text-uned-500 hover:text-uned-600 font-medium flex items-center gap-1 py-1 px-1.5 rounded hover:bg-slate-800">
+          <i class="fa-solid fa-plus"></i> Añadir
+        </button>
+      </div>
+      <div class="relative">
+        <select id="subjectSelect" onchange="onSubjectChange()" class="w-full bg-slate-850 border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-uned-500 focus:border-transparent transition cursor-pointer">
+          <option value="" disabled selected>Cargando asignaturas...</option>
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+          <i class="fa-solid fa-chevron-down text-xs"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conversations Section -->
+    <div class="flex-1 overflow-y-auto p-3 flex flex-col space-y-1">
+      <div class="flex items-center justify-between px-2 py-1 mb-1">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Historial de Chats</span>
+        <button onclick="createNewConversation()" class="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded transition" title="Nuevo chat">
+          <i class="fa-solid fa-pen-to-square text-xs"></i>
+        </button>
+      </div>
+
+      <button onclick="createNewConversation()" class="w-full mb-3 flex items-center gap-2.5 px-3 py-3 rounded-xl border border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-uned-500/50 hover:text-slate-100 text-sm font-medium transition text-left">
+        <i class="fa-solid fa-plus text-uned-500 text-xs"></i>
+        <span>Nueva conversación</span>
+      </button>
+
+      <div id="conversationsList" class="flex flex-col space-y-1">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- Bottom Actions: Sync & Settings -->
+    <div class="p-3 border-t border-slate-800 bg-slate-900/80 space-y-2">
+      <button onclick="openSyncModal()" class="w-full flex items-center justify-between px-3.5 py-3 rounded-xl bg-gradient-to-r from-uned-700 to-uned-600 hover:from-uned-600 hover:to-uned-500 text-white font-medium text-sm shadow-md shadow-uned-900/30 transition">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-rotate"></i>
+          <span>Sincronizar UNED</span>
+        </div>
+        <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">Auto</span>
+      </button>
+
+      <div class="flex items-center justify-between pt-1">
+        <button onclick="openSettingsModal()" class="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-200 px-2 py-2 rounded-lg hover:bg-slate-800 transition">
+          <i class="fa-solid fa-gear"></i>
+          <span>Ajustes & API</span>
+        </button>
+        <span id="aiProviderBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+          Gemini
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CHAT CONTAINER -->
+  <main class="flex-1 flex flex-col bg-slate-950 overflow-hidden relative">
+    
+    <!-- Top Bar with Hamburger for Tablet -->
+    <header class="h-16 border-b border-slate-800/80 bg-slate-900/50 backdrop-blur px-4 md:px-6 flex items-center justify-between z-10 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <!-- Hamburger Button (Tablet/Mobile) -->
+        <button onclick="toggleSidebar()" class="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl md:hidden transition" title="Abrir menú">
+          <i class="fa-solid fa-bars text-lg"></i>
+        </button>
+        <div class="w-2.5 h-2.5 rounded-full bg-uned-500 animate-pulse"></div>
+        <div class="truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+          <h2 id="currentSubjectTitle" class="font-semibold text-slate-100 text-sm truncate">Selecciona una asignatura</h2>
+          <p id="currentSubjectSub" class="text-xs text-slate-400 truncate">0 documentos indexados</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="toggleFilesDrawer()" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium transition shadow-sm">
+          <i class="fa-solid fa-folder-open text-uned-500"></i>
+          <span class="hidden sm:inline">Materiales</span>
+          <span id="filesBadgeCount" class="bg-slate-700 text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Chat Messages Scroll Area -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 flex flex-col">
+      <!-- Welcome Empty State -->
+      <div id="emptyState" class="m-auto max-w-xl text-center py-6 md:py-10 px-2">
+        <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-uned-500/10 border border-uned-500/30 flex items-center justify-center text-uned-500 text-2xl mx-auto mb-4">
+          <i class="fa-solid fa-book-bookmark"></i>
+        </div>
+        <h3 class="text-lg md:text-xl font-bold text-slate-100 mb-2">¿Qué quieres preparar hoy?</h3>
+        <p class="text-slate-400 text-xs md:text-sm mb-6 leading-relaxed">
+          Tengo acceso a las guías docentes, temarios y apuntes de esta asignatura. Pregúntame dudas teóricas, pídeme exámenes o explicaciones.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:gap-3 text-left">
+          <button onclick="usePromptPrompt('Hazme un resumen estructurado de los puntos clave del temario.')" class="p-3 md:p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-uned-500/50 hover:bg-slate-850 text-xs text-slate-300 transition group active:scale-98">
+            <span class="font-semibold text-slate-200 block mb-1 group-hover:text-uned-500">📝 Resumen general</span>
+            Puntos clave y estructura de la materia.
+          </button>
+          <button onclick="usePromptPrompt('Genérame un examen tipo test de 5 preguntas con 4 opciones y explica la solución razonada.')" class="p-3 md:p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-uned-500/50 hover:bg-slate-850 text-xs text-slate-300 transition group active:scale-98">
+            <span class="font-semibold text-slate-200 block mb-1 group-hover:text-uned-500">❓ Test de autoevaluación</span>
+            Preguntas tipo examen de la UNED.
+          </button>
+          <button onclick="usePromptPrompt('¿Cuáles son los criterios de evaluación, peso de la PEC y formato del examen presencial?')" class="p-3 md:p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-uned-500/50 hover:bg-slate-850 text-xs text-slate-300 transition group active:scale-98">
+            <span class="font-semibold text-slate-200 block mb-1 group-hover:text-uned-500">⚖️ Evaluación y PEC</span>
+            Criterios oficiales según la guía docente.
+          </button>
+          <button onclick="usePromptPrompt('Explícame los conceptos más difíciles del temario con ejemplos cotidianos paso a paso.')" class="p-3 md:p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-uned-500/50 hover:bg-slate-850 text-xs text-slate-300 transition group active:scale-98">
+            <span class="font-semibold text-slate-200 block mb-1 group-hover:text-uned-500">💡 Explicación simple</span>
+            Conceptos difíciles simplificados.
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Input Box -->
+    <div class="p-3 md:p-4 border-t border-slate-800/80 bg-slate-900/30 flex-shrink-0">
+      <div class="max-w-4xl mx-auto relative bg-slate-900 rounded-2xl border border-slate-800 focus-within:border-uned-500/70 shadow-lg transition">
+        <textarea id="messageInput" rows="2" placeholder="Pregunta sobre temario, PEC o exámenes..." class="w-full bg-transparent text-slate-200 text-sm px-4 pt-3.5 pb-12 focus:outline-none resize-none placeholder-slate-500"></textarea>
+
+        <div class="absolute bottom-2.5 left-3 flex items-center gap-2">
+          <label for="quickUploadInput" class="cursor-pointer p-2 rounded-lg text-slate-400 hover:text-uned-500 hover:bg-slate-800 transition" title="Adjuntar documento o apunte PDF a esta asignatura">
+            <i class="fa-solid fa-paperclip text-sm"></i>
+          </label>
+          <input type="file" id="quickUploadInput" accept=".pdf,.txt,.md" class="hidden" onchange="handleQuickUpload(this)">
+          <span id="quickUploadStatus" class="text-xs text-slate-400"></span>
+        </div>
+
+        <div class="absolute bottom-2.5 right-3 flex items-center gap-2">
+          <button id="sendBtn" onclick="sendMessage()" class="px-4 py-2 bg-uned-600 hover:bg-uned-500 text-white rounded-xl font-medium text-xs flex items-center gap-2 shadow-sm transition disabled:opacity-50 active:scale-95">
+            <span>Enviar</span>
+            <i class="fa-solid fa-paper-plane text-[10px]"></i>
+          </button>
+        </div>
+      </div>
+      <div class="text-center mt-1.5 hidden sm:block">
+        <span class="text-[11px] text-slate-500">Respuestas generadas a partir de los documentos oficiales y apuntes de la asignatura.</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT DRAWER: DOCUMENTS & FILES -->
+  <div id="filesDrawer" class="w-full sm:w-96 bg-slate-900 border-l border-slate-800 flex flex-col flex-shrink-0 transition-all duration-300 transform translate-x-full fixed right-0 inset-y-0 z-50 shadow-2xl">
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-folder-closed text-uned-500"></i>
+        <h3 class="font-bold text-slate-100 text-sm">Documentos de la Asignatura</h3>
+      </div>
+      <button onclick="toggleFilesDrawer()" class="p-2 text-slate-400 hover:text-slate-100 rounded-lg hover:bg-slate-800 transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Drag & Drop / Tap to Upload Zone -->
+    <div class="p-4 border-b border-slate-800">
+      <label for="drawerFileInput" id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="border-2 border-dashed border-slate-700 hover:border-uned-500 rounded-xl p-5 text-center cursor-pointer transition bg-slate-850/50 block">
+        <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 mb-2 block"></i>
+        <p class="text-xs font-semibold text-slate-200">Toca para subir apuntes o exámenes</p>
+        <p class="text-[11px] text-slate-400 mt-1">Soporta archivos <span class="text-uned-500 font-medium">PDF y TXT</span></p>
+        <input type="file" id="drawerFileInput" accept=".pdf,.txt,.md" class="hidden" onchange="handleDrawerUpload(this)">
+      </label>
+    </div>
+
+    <!-- File list -->
+    <div class="flex-1 overflow-y-auto p-3 space-y-2" id="filesList">
+      <!-- Rendered dynamically -->
+    </div>
+  </div>
+
+  <!-- MODAL: TUTORIAL & BIENVENIDA -->
+  <div id="tutorialModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-4 md:p-6 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-uned-500/20 text-uned-500 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-book-open-reader"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-100 text-base md:text-lg">Guía de Inicio: UNED Study Copilot</h3>
+            <p class="text-xs text-slate-400">Aprende a usarlo en 3 sencillos pasos</p>
+          </div>
+        </div>
+        <button onclick="closeTutorialModal()" class="text-slate-400 hover:text-slate-200 p-2 rounded-lg hover:bg-slate-800 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-4 md:p-6 space-y-6 overflow-y-auto flex-1">
+        <!-- Step 1 -->
+        <div class="flex gap-4">
+          <div class="w-8 h-8 rounded-full bg-uned-500 text-white font-bold flex items-center justify-center flex-shrink-0 text-sm shadow">1</div>
+          <div>
+            <h4 class="font-semibold text-slate-200 text-sm mb-1">Paso 1: Consigue tu clave de IA (Gratis)</h4>
+            <p class="text-slate-400 text-xs leading-relaxed mb-3">
+              Usa la clave de <strong>Google Gemini</strong> (es 100% gratuita y lee guías y temarios enteros de golpe) o pega tu clave de <strong>OpenAI</strong> en Ajustes.
+            </p>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="inline-flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700 text-uned-500 font-medium px-3 py-1.5 rounded-lg border border-slate-700 transition">
+              <span>Abrir Google AI Studio</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-4">
+          <div class="w-8 h-8 rounded-full bg-uned-500 text-white font-bold flex items-center justify-center flex-shrink-0 text-sm shadow">2</div>
+          <div>
+            <h4 class="font-semibold text-slate-200 text-sm mb-1">Paso 2: Sincroniza o sube tus asignaturas</h4>
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Pulsa en <strong>"Sincronizar UNED"</strong> para importar de forma automática, o pulsa en <strong>"Añadir"</strong> para crear asignaturas manualmente y subir los PDFs de tus profesores y guías docentes directamente desde tu tablet.
+            </p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flex gap-4">
+          <div class="w-8 h-8 rounded-full bg-uned-500 text-white font-bold flex items-center justify-center flex-shrink-0 text-sm shadow">3</div>
+          <div>
+            <h4 class="font-semibold text-slate-200 text-sm mb-1">Paso 3: Estudia y practica con exámenes tipo test</h4>
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Pide a la IA resúmenes de temas, dudas difíciles o simulacros de examen. La IA responderá basándose estrictamente en los documentos cargados.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-850 border-t border-slate-800 flex justify-end">
+        <button onclick="closeTutorialModal()" class="px-5 py-2.5 rounded-xl bg-uned-600 hover:bg-uned-500 text-white font-semibold text-xs transition">
+          ¡Entendido, vamos a estudiar!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AJUSTES & CONFIGURACIÓN -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-gear text-uned-500 text-lg"></i>
+          <h3 class="font-bold text-slate-100 text-base">Ajustes & Claves de IA</h3>
+        </div>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-200 p-2 rounded hover:bg-slate-800 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 overflow-y-auto">
+        <!-- AI Provider Picker -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Motor de Inteligencia Artificial</label>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" id="providerGeminiBtn" onclick="setProvider('gemini')" class="p-3 rounded-xl border border-uned-500 bg-uned-500/10 text-slate-100 text-left transition flex items-center justify-between">
+              <div>
+                <span class="font-bold text-xs block">Google Gemini</span>
+                <span class="text-[10px] text-uned-400">Recomendado (Plan Gratis)</span>
+              </div>
+              <i class="fa-solid fa-check text-uned-500 text-sm"></i>
+            </button>
+            <button type="button" id="providerOpenAIBtn" onclick="setProvider('openai')" class="p-3 rounded-xl border border-slate-700 bg-slate-850 text-slate-400 text-left transition flex items-center justify-between hover:border-slate-600">
+              <div>
+                <span class="font-bold text-xs block">OpenAI (ChatGPT)</span>
+                <span class="text-[10px] text-slate-500">Requiere saldo de API</span>
+              </div>
+              <i class="fa-solid fa-check text-transparent text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Gemini API Key -->
+        <div id="geminiKeyGroup">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            Clave de Google Gemini API
+          </label>
+          <input type="password" id="geminiApiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-850 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-uned-500 focus:border-transparent">
+          <p class="text-[11px] text-slate-400 mt-1.5 flex items-center justify-between">
+            <span>Gratis con tu cuenta de Google.</span>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-uned-500 hover:underline">Obtener clave aquí →</a>
+          </p>
+        </div>
+
+        <!-- OpenAI API Key -->
+        <div id="openaiKeyGroup" class="hidden">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            Clave de OpenAI API
+          </label>
+          <input type="password" id="openaiApiKeyInput" placeholder="sk-..." class="w-full bg-slate-850 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-uned-500 focus:border-transparent">
+          <p class="text-[11px] text-slate-400 mt-1.5">
+            Introduce tu API Key de <a href="https://platform.openai.com/api-keys" target="_blank" class="text-uned-500 hover:underline">platform.openai.com</a>
+          </p>
+        </div>
+
+        <!-- UNED Username prefill -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            Usuario UNED (Opcional)
+          </label>
+          <input type="text" id="unedUsernameInput" placeholder="ejemplo@alumno.uned.es" class="w-full bg-slate-850 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-uned-500 focus:border-transparent">
+          <p class="text-[11px] text-slate-500 mt-1">
+            Se autorrellenará automáticamente al iniciar sesión para ahorrarte tiempo.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-850 border-t border-slate-800 flex justify-end gap-2">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-medium transition">
+          Cancelar
+        </button>
+        <button onclick="saveSettings()" class="px-5 py-2.5 rounded-xl bg-uned-600 hover:bg-uned-500 text-white font-semibold text-xs transition">
+          Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SINCRONIZADOR UNED -->
+  <div id="syncModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-uned-500/20 text-uned-500 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-100 text-base">Sincronización con la UNED</h3>
+            <p class="text-xs text-slate-400">Cursos Virtuales (Ágora / Moodle)</p>
+          </div>
+        </div>
+        <button onclick="closeSyncModal()" class="text-slate-400 hover:text-slate-200 p-2 rounded hover:bg-slate-800 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 overflow-y-auto">
+        <div class="bg-slate-850 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+          <div class="flex items-start gap-2.5">
+            <i class="fa-solid fa-circle-info text-uned-500 mt-0.5"></i>
+            <div>
+              <p class="font-medium text-slate-200">¿Cómo funciona?</p>
+              <p class="text-slate-400 mt-0.5 leading-relaxed">
+                Al pulsar en iniciar, se conectará al aula virtual para descargar automáticamente tus asignaturas. En tablet también puedes pulsar en "Añadir Asignatura" y subir los PDFs directamente.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal Logs Box -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Progreso en vivo</label>
+          <div id="syncLogsBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-[11px] text-emerald-400 h-40 overflow-y-auto space-y-1">
+            <span class="text-slate-500">Esperando para iniciar sincronización...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-850 border-t border-slate-800 flex items-center justify-between">
+        <div id="syncStatusBadge" class="text-xs text-slate-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-slate-600"></span>
+          <span>Inactivo</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="closeSyncModal()" class="px-4 py-2 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-medium transition">
+            Cerrar
+          </button>
+          <button id="startSyncBtn" onclick="startSync()" class="px-5 py-2.5 rounded-xl bg-uned-600 hover:bg-uned-500 text-white font-semibold text-xs flex items-center gap-2 transition">
+            <i class="fa-solid fa-play text-[10px]"></i>
+            <span>Iniciar Sincronización</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVA ASIGNATURA MANUAL -->
+  <div id="newSubjectModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-book text-uned-500"></i>
+          <h3 class="font-bold text-slate-100 text-base">Añadir Asignatura</h3>
+        </div>
+        <button onclick="closeNewSubjectModal()" class="text-slate-400 hover:text-slate-200 p-2 rounded hover:bg-slate-800 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nombre de la Asignatura</label>
+          <input type="text" id="newSubjectName" placeholder="Ej: Derecho Administrativo I" class="w-full bg-slate-850 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-uned-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Código (Opcional)</label>
+          <input type="text" id="newSubjectCode" placeholder="Ej: 66021016" class="w-full bg-slate-850 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-uned-500">
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-850 border-t border-slate-800 flex justify-end gap-2">
+        <button onclick="closeNewSubjectModal()" class="px-4 py-2 rounded-xl text-slate-400 hover:text-slate-200 text-xs transition">
+          Cancelar
+        </button>
+        <button onclick="createSubject()" class="px-5 py-2.5 rounded-xl bg-uned-600 hover:bg-uned-500 text-white font-semibold text-xs transition">
+          Crear Asignatura
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript application -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
